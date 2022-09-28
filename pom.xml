@@ -1,0 +1,208 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.ekotrope</groupId>
+    <artifactId>codeartifact-maven-wagon</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+    <description>Consume and deploy artifacts from an AWS CodeArtifact repository, using the local system's standard AWS credentials</description>
+
+    <organization>
+        <name>Ekotrope</name>
+        <url>http://www.ekotrope.com</url>
+    </organization>
+
+    <developers>
+        <developer>
+            <id>ben</id>
+            <name>Benjamin DeLillo</name>
+            <email>ben@ekotrope.com</email>
+            <timezone>America/New_York</timezone>
+        </developer>
+    </developers>
+
+    <licenses>
+        <license>
+            <name>MIT License</name>
+            <url>http://www.opensource.org/licenses/mit-license.php</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+
+    <distributionManagement>
+        <snapshotRepository>
+            <id>ossrh</id>
+            <url>https://oss.sonatype.org/content/repositories/snapshots</url>
+        </snapshotRepository>
+        <repository>
+            <id>ossrh</id>
+            <url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</url>
+        </repository>
+    </distributionManagement>
+
+    <properties>
+        <maven.compiler.source>11</maven.compiler.source>
+        <maven.compiler.target>11</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>com.amazonaws</groupId>
+                <artifactId>aws-java-sdk-bom</artifactId>
+                <version>1.12.311</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.apache.maven.wagon</groupId>
+            <artifactId>wagon-http</artifactId>
+            <version>3.5.2</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.amazonaws</groupId>
+            <artifactId>aws-java-sdk-codeartifact</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.codehaus.plexus</groupId>
+            <artifactId>plexus-component-annotations</artifactId>
+            <version>2.1.1</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>junit</groupId>
+                    <artifactId>junit</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+
+            <plugin>
+                <groupId>org.codehaus.plexus</groupId>
+                <artifactId>plexus-component-metadata</artifactId>
+                <version>2.1.1</version>
+                <executions>
+                    <execution>
+                        <id>process-classes</id>
+                        <goals>
+                            <goal>generate-metadata</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <artifactId>maven-invoker-plugin</artifactId>
+                <version>3.3.0</version>
+                <configuration>
+                    <settingsFile>src/it/settings.xml</settingsFile>
+                    <cloneProjectsTo>${project.build.directory}/it</cloneProjectsTo>
+                    <localRepositoryPath>${project.build.directory}/local-repo</localRepositoryPath>
+                    <postBuildHookScript>verify</postBuildHookScript>
+                    <goals>
+                        <goal>install</goal>
+                    </goals>
+                    <showErrors>true</showErrors>
+                    <debug>false</debug>
+                    <streamLogs>true</streamLogs>
+                    <properties>
+                        <codeartifact.test.domain>${codeartifact.test.domain}</codeartifact.test.domain>
+                        <codeartifact.test.owner>${codeartifact.test.owner}</codeartifact.test.owner>
+                        <codeartifact.test.repositoryName>${codeartifact.test.repositoryName}</codeartifact.test.repositoryName>
+                        <codeartifact.test.dep.groupId>${codeartifact.test.dep.groupId}</codeartifact.test.dep.groupId>
+                        <codeartifact.test.dep.artifactId>${codeartifact.test.dep.artifactId}</codeartifact.test.dep.artifactId>
+                        <codeartifact.test.dep.version>${codeartifact.test.dep.version}</codeartifact.test.dep.version>
+                    </properties>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>integration-test</id>
+                        <goals>
+                            <goal>install</goal>
+                            <goal>integration-test</goal>
+                            <goal>verify</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <version>3.0.0</version>
+                <executions>
+                    <execution>
+                        <id>enforce-test-properties</id>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <requireProperty>
+                                    <property>codeartifact.test.domain</property>
+                                    <message>A CodeArtifact domain must be provided for use in testing</message>
+                                </requireProperty>
+                                <requireProperty>
+                                    <property>codeartifact.test.owner</property>
+                                    <message>A CodeArtifact owner must be provided for use in testing</message>
+                                </requireProperty>
+                                <requireProperty>
+                                    <property>codeartifact.test.repositoryName</property>
+                                    <message>A CodeArtifact repositoryName must be provided for use in testing</message>
+                                </requireProperty>
+                                <requireProperty>
+                                    <property>codeartifact.test.dep.groupId</property>
+                                    <message>A dependency groupId must be provided for use in testing</message>
+                                </requireProperty>
+                                <requireProperty>
+                                    <property>codeartifact.test.domain</property>
+                                    <message>A dependency artifactId must be provided for use in testing</message>
+                                </requireProperty>
+                                <requireProperty>
+                                    <property>codeartifact.test.domain</property>
+                                    <message>A dependency version must be provided for use in testing</message>
+                                </requireProperty>
+                            </rules>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-gpg-plugin</artifactId>
+                <version>3.0.1</version>
+                <executions>
+                    <execution>
+                        <id>sign-artifacts</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>sign</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.sonatype.plugins</groupId>
+                <artifactId>nexus-staging-maven-plugin</artifactId>
+                <version>1.6.13</version>
+                <extensions>true</extensions>
+                <configuration>
+                    <serverId>ossrh</serverId>
+                    <nexusUrl>https://oss.sonatype.org/</nexusUrl>
+                    <autoReleaseAfterClose>true</autoReleaseAfterClose>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>
