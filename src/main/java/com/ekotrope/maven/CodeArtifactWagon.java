@@ -21,30 +21,38 @@ import com.amazonaws.services.codeartifact.model.GetAuthorizationTokenRequest;
 import com.amazonaws.services.codeartifact.model.GetRepositoryEndpointRequest;
 import com.amazonaws.services.codeartifact.model.PackageFormat;
 
-
 @Component(role=Wagon.class, hint="codeartifact", instantiationStrategy="per-lookup")
 public class CodeArtifactWagon extends HttpWagon
 {
     private static String CODEARTIFACT_SCHEME = "codeartifact:";
 
-    // "/" is not an acceptable character in either the domain or repository name, and owner is strictly numeric
+    // "/" is not an acceptable character in either the domain or repository name, and owner is strictly numeric, so it's a safe delimiter
     private static final Pattern URL_FORMAT = Pattern.compile("codeartifact:(?<domain>.*)/(?<owner>.*)/(?<repositoryName>.*)");
 
+    @Override
     public void connect(Repository repository, AuthenticationInfo authenticationInfo, ProxyInfoProvider proxyInfoProvider ) throws AuthenticationException, ConnectionException
     {
         if (repository.getUrl().startsWith(CODEARTIFACT_SCHEME))
         {
             Matcher urlPartsMatcher = URL_FORMAT.matcher(repository.getUrl());
-            urlPartsMatcher.find();
-            String domain = urlPartsMatcher.group("domain");
-            String owner = urlPartsMatcher.group("owner");
-            String repositoryName = urlPartsMatcher.group("repositoryName");
+            boolean found = urlPartsMatcher.find();
 
-            repository.setUrl(getCodeArtifactEndpoint(domain, owner, repositoryName));
+            if (found)
+            {
+                String domain = urlPartsMatcher.group("domain");
+                String owner = urlPartsMatcher.group("owner");
+                String repositoryName = urlPartsMatcher.group("repositoryName");
 
-            authenticationInfo = new AuthenticationInfo();
-            authenticationInfo.setUserName("aws");
-            authenticationInfo.setPassword(getCodeArtifactToken(domain, owner));
+                repository.setUrl(getCodeArtifactEndpoint(domain, owner, repositoryName));
+
+                authenticationInfo = new AuthenticationInfo();
+                authenticationInfo.setUserName("aws");
+                authenticationInfo.setPassword(getCodeArtifactToken(domain, owner));
+            }
+            else
+            {
+                throw new RuntimeException("Malformed repository url, must be \"codeartifact:domain/owner/repsitoryName\"");
+            }
         }
 
         super.connect(repository, authenticationInfo, proxyInfoProvider);
