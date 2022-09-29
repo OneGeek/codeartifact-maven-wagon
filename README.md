@@ -1,5 +1,8 @@
 # Codeartifact Maven Wagon
 Consume and deploy artifacts from an AWS CodeArtifact repository, using the standard AWS credentials provider
+## Credentials
+This wagon uses [AWS default credential provider chain](https://docs.aws.amazon.com/sdk-for-java/v1/developer-guide/credentials.html) when 
+authenticating to the AWS SDK in order to retrieve the CodeArtifact endpoint url and auth token.
 ## Usage
 To allow a Maven project to access a CodeArtifact repository, add this wagon as an extension to the build section of the project's pom.xml
 ```xml
