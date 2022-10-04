@@ -65,7 +65,7 @@ public class CodeArtifactWagon extends HttpWagon
         return codeartifact.getAuthorizationToken(new GetAuthorizationTokenRequest()
                 .withDomain(domain)
                 .withDomainOwner(owner)
-                .withDurationSeconds(Duration.of(8, HOURS).toSeconds())
+                .withDurationSeconds(Duration.of(8, HOURS).getSeconds())
             ).getAuthorizationToken();
     }
 
