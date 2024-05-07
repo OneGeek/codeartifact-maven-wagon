@@ -29,6 +29,8 @@ public class CodeArtifactWagon extends HttpWagon
     // "/" is not an acceptable character in either the domain or repository name, and owner is strictly numeric, so it's a safe delimiter
     private static final Pattern URL_FORMAT = Pattern.compile("codeartifact:(?<domain>.*)/(?<owner>.*)/(?<repositoryName>.*)");
 
+
+
     @Override
     public void connect(Repository repository, AuthenticationInfo authenticationInfo, ProxyInfoProvider proxyInfoProvider ) throws AuthenticationException, ConnectionException
     {
@@ -43,11 +45,13 @@ public class CodeArtifactWagon extends HttpWagon
                 String owner = urlPartsMatcher.group("owner");
                 String repositoryName = urlPartsMatcher.group("repositoryName");
 
+
                 repository.setUrl(getCodeArtifactEndpoint(domain, owner, repositoryName));
 
                 authenticationInfo = new AuthenticationInfo();
                 authenticationInfo.setUserName("aws");
-                authenticationInfo.setPassword(getCodeArtifactToken(domain, owner));
+                authenticationInfo.setPassword(CodeArtifactTokenManager.getInstance().getToken(domain, owner));
+                //System.out.println("token used: " + CodeArtifactTokenManager.getInstance().getToken(domain, owner));
             }
             else
             {
@@ -56,17 +60,6 @@ public class CodeArtifactWagon extends HttpWagon
         }
 
         super.connect(repository, authenticationInfo, proxyInfoProvider);
-    }
-
-    private String getCodeArtifactToken(String domain, String owner)
-    {
-        AWSCodeArtifact codeartifact = AWSCodeArtifactClientBuilder.defaultClient();
-
-        return codeartifact.getAuthorizationToken(new GetAuthorizationTokenRequest()
-                .withDomain(domain)
-                .withDomainOwner(owner)
-                .withDurationSeconds(Duration.of(8, HOURS).getSeconds())
-            ).getAuthorizationToken();
     }
 
     private String getCodeArtifactEndpoint(String domain, String owner, String repositoryName)
