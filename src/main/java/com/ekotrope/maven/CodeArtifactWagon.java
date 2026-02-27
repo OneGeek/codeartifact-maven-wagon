@@ -1,11 +1,28 @@
 package com.ekotrope.maven;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.time.temporal.ChronoUnit.HOURS;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.Base64;
+import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.apache.http.HttpException;
+import org.apache.http.HttpHost;
+import org.apache.http.auth.AuthScope;
+import org.apache.http.auth.Credentials;
+import org.apache.http.auth.UsernamePasswordCredentials;
+import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpUriRequest;
+import org.apache.http.impl.auth.BasicScheme;
+import org.apache.http.impl.client.BasicAuthCache;
+import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.maven.wagon.ConnectionException;
 import org.apache.maven.wagon.Wagon;
 import org.apache.maven.wagon.authentication.AuthenticationException;
@@ -24,60 +41,49 @@ import com.amazonaws.services.codeartifact.model.PackageFormat;
 @Component(role=Wagon.class, hint="codeartifact", instantiationStrategy="per-lookup")
 public class CodeArtifactWagon extends HttpWagon
 {
-    private static String CODEARTIFACT_SCHEME = "codeartifact:";
-
-    // "/" is not an acceptable character in either the domain or repository name, and owner is strictly numeric, so it's a safe delimiter
-    private static final Pattern URL_FORMAT = Pattern.compile("codeartifact:(?<domain>.*)/(?<owner>.*)/(?<repositoryName>.*)");
+    // Store statically since wagonRepo is shared and mutated in WagonTransporter in ways we can't control
+    private static final Map<String, CodeArtifactRepoInfo> sharedRepoInfo = new ConcurrentHashMap<>();
+    private CodeArtifactRepoInfo codeArtifactRepoInfo = null;
 
     @Override
-    public void connect(Repository repository, AuthenticationInfo authenticationInfo, ProxyInfoProvider proxyInfoProvider ) throws AuthenticationException, ConnectionException
+    protected String getURL(Repository repository)
     {
-        if (repository.getUrl().startsWith(CODEARTIFACT_SCHEME))
+        storeCodeArtifactInfoIfNeeded(repository);
+
+        return codeArtifactRepoInfo != null
+            ? codeArtifactRepoInfo.endpoint
+            : repository.getUrl();
+    }
+
+    /** Inject auth token at last possible moment to avoid anything else being able to mess with it */
+    @Override
+    public void setHeaders(HttpUriRequest method)
+    {
+        super.setHeaders(method);
+
+        if (codeArtifactRepoInfo != null)
         {
-            Matcher urlPartsMatcher = URL_FORMAT.matcher(repository.getUrl());
-            boolean found = urlPartsMatcher.find();
+            String basicAuth = Base64.getEncoder().encodeToString(("aws:" + codeArtifactRepoInfo.token).getBytes(UTF_8));
+            method.setHeader("Authorization", "Basic " + basicAuth);
+        }
+    }
 
-            if (found)
+    private void storeCodeArtifactInfoIfNeeded(Repository repository)
+    {
+        if (codeArtifactRepoInfo == null)
+        {
+            String url = repository.getUrl();
+
+            if (url.startsWith("codeartifact:"))
             {
-                String domain = urlPartsMatcher.group("domain");
-                String owner = urlPartsMatcher.group("owner");
-                String repositoryName = urlPartsMatcher.group("repositoryName");
-
-                repository.setUrl(getCodeArtifactEndpoint(domain, owner, repositoryName));
-
-                authenticationInfo = new AuthenticationInfo();
-                authenticationInfo.setUserName("aws");
-                authenticationInfo.setPassword(getCodeArtifactToken(domain, owner));
+                codeArtifactRepoInfo = new CodeArtifactRepoInfo(repository);
+                sharedRepoInfo.put(repository.getId(), codeArtifactRepoInfo);
             }
-            else
+            else if (sharedRepoInfo.containsKey(repository.getId()))
             {
-                throw new RuntimeException("Malformed repository url, must be \"codeartifact:domain/owner/repsitoryName\"");
+                // New wagon instance, URL already rewritten — use cached info
+                codeArtifactRepoInfo = sharedRepoInfo.get(repository.getId());
             }
         }
-
-        super.connect(repository, authenticationInfo, proxyInfoProvider);
-    }
-
-    private String getCodeArtifactToken(String domain, String owner)
-    {
-        AWSCodeArtifact codeartifact = AWSCodeArtifactClientBuilder.defaultClient();
-
-        return codeartifact.getAuthorizationToken(new GetAuthorizationTokenRequest()
-                .withDomain(domain)
-                .withDomainOwner(owner)
-                .withDurationSeconds(Duration.of(8, HOURS).getSeconds())
-            ).getAuthorizationToken();
-    }
-
-    private String getCodeArtifactEndpoint(String domain, String owner, String repositoryName)
-    {
-        AWSCodeArtifact codeartifact = AWSCodeArtifactClientBuilder.defaultClient();
-
-        return codeartifact.getRepositoryEndpoint(new GetRepositoryEndpointRequest()
-                .withDomain(domain)
-                .withDomainOwner(owner)
-                .withRepository(repositoryName)
-                .withFormat(PackageFormat.Maven)
-            ).getRepositoryEndpoint();
     }
 }

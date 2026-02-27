@@ -4,7 +4,7 @@
 
     <groupId>com.ekotrope</groupId>
     <artifactId>codeartifact-maven-wagon</artifactId>
-    <version>1.0.0</version>
+    <version>1.0.2</version>
     <description>Consume and deploy artifacts from an AWS CodeArtifact repository, using the standard AWS credentials provider</description>
     <name>codeartifact-maven-wagon</name>
     <url>https://github.com/OneGeek/codeartifact-maven-wagon</url>
