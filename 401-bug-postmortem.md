@@ -70,7 +70,7 @@ Maven's `WagonTransporter` (in `org.eclipse.aether.transport.wagon`) manages wag
 
 ### Attempt 6 (Solution): Static Shared State + Direct Header Injection
 
-**Approach:** Combine `setHeaders()` override with a `static volatile CodeArtifactRepoInfo` field that bridges parsed info from the first wagon instance to all subsequent instances.
+**Approach:** Combine `setHeaders()` override with a `static Map<String, CodeArtifactRepoInfo>` field that bridges parsed info from the first wagon instance to all subsequent instances. Stored per distinct repository ID.
 
 **Why it works:**
 - The first `CodeArtifactWagon` instance sees the `codeartifact:` URL, parses it, creates `CodeArtifactRepoInfo`, and stores it in both the instance field and the static field.
