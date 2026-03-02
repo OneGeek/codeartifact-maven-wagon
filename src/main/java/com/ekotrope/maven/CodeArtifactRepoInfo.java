@@ -48,15 +48,6 @@ final class CodeArtifactRepoInfo
         this.token = getCodeArtifactToken();
     }
 
-    private String getCodeArtifactToken()
-    {
-        return codeartifact.getAuthorizationToken(new GetAuthorizationTokenRequest()
-            .withDomain(domain)
-            .withDomainOwner(owner)
-            .withDurationSeconds(Duration.of(8, HOURS).getSeconds())
-        ).getAuthorizationToken();
-    }
-
     private String getCodeArtifactEndpoint()
     {
         return codeartifact.getRepositoryEndpoint(new GetRepositoryEndpointRequest()
@@ -65,5 +56,14 @@ final class CodeArtifactRepoInfo
             .withRepository(repositoryName)
             .withFormat(PackageFormat.Maven)
         ).getRepositoryEndpoint();
+    }
+
+    private String getCodeArtifactToken()
+    {
+        return codeartifact.getAuthorizationToken(new GetAuthorizationTokenRequest()
+            .withDomain(domain)
+            .withDomainOwner(owner)
+            .withDurationSeconds(Duration.of(8, HOURS).getSeconds())
+        ).getAuthorizationToken();
     }
 }

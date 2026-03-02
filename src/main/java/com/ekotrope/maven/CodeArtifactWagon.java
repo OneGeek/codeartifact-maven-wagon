@@ -48,6 +48,9 @@ public class CodeArtifactWagon extends HttpWagon
     @Override
     protected String getURL(Repository repository)
     {
+        // AbstractHttpClientWagon.openConnectionInternal calls  `repository.setUrl( getURL( repository ) )`
+        // Make sure we have stored the info we need before it does that rewrite
+        // Due to WagonTransporter's behavior, there's no more reliable place to put this
         storeCodeArtifactInfoIfNeeded(repository);
 
         return codeArtifactRepoInfo != null
@@ -70,18 +73,20 @@ public class CodeArtifactWagon extends HttpWagon
 
     private void storeCodeArtifactInfoIfNeeded(Repository repository)
     {
+        // New Wagon instance
         if (codeArtifactRepoInfo == null)
         {
             String url = repository.getUrl();
 
+            // Brand new instance, initial config
             if (url.startsWith("codeartifact:"))
             {
                 codeArtifactRepoInfo = new CodeArtifactRepoInfo(repository);
                 sharedRepoInfo.put(repository.getId(), codeArtifactRepoInfo);
             }
+            // Recycled wagon instance, URL already rewritten, use cached info
             else if (sharedRepoInfo.containsKey(repository.getId()))
             {
-                // New wagon instance, URL already rewritten — use cached info
                 codeArtifactRepoInfo = sharedRepoInfo.get(repository.getId());
             }
         }
